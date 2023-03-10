@@ -1,3 +1,3 @@
-# Addon Name
+# MikScrollingBattleText
 
-This is the repository for <Addon Name>. Modified for Ascension.gg. 
+This is the repository for MikScrollingBattleText. Modified for Ascension.gg. 
