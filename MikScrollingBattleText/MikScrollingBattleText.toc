@@ -10,6 +10,7 @@
 Libs\LibStub.lua
 Libs\CallbackHandler-1.0.lua
 Libs\LibSharedMedia-3.0.lua
+libs\AceTimer-3.0\AceTimer-3.0.xml
 MikSBT.lua
 Localization\localization.xml
 MSBTProfiles.lua
