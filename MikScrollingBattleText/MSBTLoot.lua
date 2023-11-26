@@ -7,6 +7,7 @@
 local module = {}
 local moduleName = "Loot"
 MikSBT[moduleName] = module
+local AceTimer = LibStub('AceTimer-3.0')
 
 
 -------------------------------------------------------------------------------
@@ -74,44 +75,58 @@ end
 -- ****************************************************************************
 -- Handles looted items.
 -- ****************************************************************************
-local function HandleItems(parserEvent)
- -- Created items are buggy.  Ignore them.
- if (parserEvent.isCreate) then return end
+function AceTimer:HandleItems(parserEvent)
+	-- Created items are buggy.  Ignore them.
+	if (parserEvent.isCreate) then return end
 
- -- Get information about the looted item.
- local itemLink = parserEvent.itemLink
- local itemName, _, itemQuality, _, _, itemType, _, _, _, itemTexture = GetItemInfo(itemLink)
+	-- Get information about the looted item.
+	local itemLink = parserEvent.itemLink
+	local itemName, _, itemQuality, _, _, itemType, _, _, _, itemTexture = GetItemInfo(itemLink)
 
- -- Determine whether to show the event and ignore it if necessary.
- local currentProfile = MSBTProfiles.currentProfile
- local showEvent = true
- if (currentProfile.qualityExclusions[itemQuality]) then showEvent = false end
- if ((itemType == ITEM_TYPE_QUEST) and currentProfile.alwaysShowQuestItems) then showEvent = true end
- if (currentProfile.itemExclusions[itemName]) then showEvent = false end
- if (currentProfile.itemsAllowed[itemName]) then showEvent = true end
- if (not showEvent) then return end
+	-- Determine whether to show the event and ignore it if necessary.
+	local currentProfile = MSBTProfiles.currentProfile
+	local showEvent = true
+	if (currentProfile.qualityExclusions[itemQuality]) then showEvent = false end
+	if ((itemType == ITEM_TYPE_QUEST) and currentProfile.alwaysShowQuestItems) then showEvent = true end
+	if (currentProfile.itemExclusions[itemName]) then showEvent = false end
+	if (currentProfile.itemsAllowed[itemName]) then showEvent = true end
+	if (not showEvent) then return end
 
- -- Format the item name according to its quality.
- local qualityColor = ITEM_QUALITY_COLORS[itemQuality]
- if (qualityPatterns[itemQuality]) then itemName = string_format(qualityPatterns[itemQuality], itemName) end
+	-- Format the item name according to its quality.
+	local qualityColor = ITEM_QUALITY_COLORS[itemQuality]
+	if (qualityPatterns[itemQuality]) then itemName = string_format(qualityPatterns[itemQuality], itemName) end
 
- -- Get the number of items already existing in inventory and add the amount
- -- looted to it if the item wasn't the result of a conjure.
- local numLooted = parserEvent.amount or 1
- local numItems = GetItemCount(itemLink) or 0
- local numTotal = numItems + numLooted
+	-- Get the number of items already existing in inventory and add the amount
+	-- looted to it if the item wasn't the result of a conjure.
+	local numLooted = parserEvent.amount or 1
+	local numItems = GetItemCount(itemLink) or 0
+	local numTotal
+	if numItems == 0 then numTotal = numLooted else numTotal = numItems end
 
- -- Format the event and display it.
- local eventSettings = MSBTProfiles.currentProfile.events.NOTIFICATION_LOOT
- if (eventSettings and not eventSettings.disabled) then
-  local message = eventSettings.message
-  message = string_gsub(message, "%%e", itemName)
-  message = string_gsub(message, "%%a", numLooted)
-  message = string_gsub(message, "%%t", numTotal)
-  DisplayEvent(eventSettings, message, itemTexture)
- end
+
+	-- Format the event and display it.
+	local eventSettings = MSBTProfiles.currentProfile.events.NOTIFICATION_LOOT
+	if (eventSettings and not eventSettings.disabled) then
+		local message = eventSettings.message
+		message = string_gsub(message, "%%e", itemName)
+		message = string_gsub(message, "%%a", numLooted)
+		message = string_gsub(message, "%%t", numTotal)
+		DisplayEvent(eventSettings, message, itemTexture)
+	end
 end
 
+local function deepcopy(obj, seen)
+	-- Handle non-tables and previously-seen tables.
+	if type(obj) ~= 'table' then return obj end
+	if seen and seen[obj] then return seen[obj] end
+
+	-- New table; mark it as seen an copy recursively.
+	local s = seen or {}
+	local res = {}
+	s[obj] = res
+	for k, v in next, obj do res[deepcopy(k, s)] = deepcopy(v, s) end
+	return setmetatable(res, getmetatable(obj))
+end
 
 -- ****************************************************************************
 -- Parser events handler.
@@ -121,7 +136,8 @@ local function ParserEventsHandler(parserEvent)
  if (parserEvent.recipientUnit ~= "player" or parserEvent.eventType ~= "loot") then return end
 
  -- Call the correct handler for the loot type.
- if (parserEvent.isMoney) then HandleMoney(parserEvent) elseif (parserEvent.itemLink) then HandleItems(parserEvent) end
+ --if (parserEvent.isMoney) then HandleMoney(parserEvent) elseif (parserEvent.itemLink) then HandleItems(parserEvent) end
+ if (parserEvent.isMoney) then HandleMoney(parserEvent) elseif (parserEvent.itemLink) then AceTimer:ScheduleTimer("HandleItems", .1, deepcopy(parserEvent)) end
 end
 
 
